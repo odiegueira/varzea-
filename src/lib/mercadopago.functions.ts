@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
-  createPlatformPixPayment,
+  createPlatformPreference,
   createPlatformPreapproval,
   getAdmin,
   getStableAppOrigin,
@@ -412,14 +412,17 @@ export const createMpPixCharge = createServerFn({ method: "POST" })
     const externalRef = `${data.teamId}:${userId}:${data.tier}:${Date.now()}`;
     const stableOrigin = getStableAppOrigin(data.origin);
     const notificationUrl = `${stableOrigin}/api/public/mp/webhook?team=${encodeURIComponent(data.teamId)}`;
-    const pix = await createPlatformPixPayment({
+    const backUrl = `${stableOrigin}/apoio/${data.teamId}?status=ok`;
+    const pix = await createPlatformPreference({
       payerEmail: email,
       amount: data.amount,
-      description: `Apoio avulso ${data.teamName} ${data.tier}`,
+      title: `PIX avulso 30 dias ${data.teamName} ${data.tier}`,
       externalReference: externalRef,
+      backUrl,
       notificationUrl,
+      pixOnly: true,
     });
-    return pix;
+    return { initPoint: pix.init_point, preferenceId: pix.id };
   });
 
 export const confirmMpPixPayment = createServerFn({ method: "POST" })

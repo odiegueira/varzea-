@@ -291,6 +291,7 @@ export async function createPlatformPreference(opts: {
   externalReference: string;
   backUrl: string;
   notificationUrl: string;
+  pixOnly?: boolean;
 }) {
   const safeTitle = opts.title
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -316,7 +317,14 @@ export async function createPlatformPreference(opts: {
       failure: opts.backUrl,
     },
     auto_return: "approved",
-    payment_methods: {
+    payment_methods: opts.pixOnly ? {
+      excluded_payment_types: [
+        { id: "credit_card" }, { id: "debit_card" },
+        { id: "ticket" }, { id: "atm" }, { id: "account_money" },
+      ],
+      default_payment_method_id: "pix",
+      installments: 1,
+    } : {
       excluded_payment_types: [{ id: "ticket" }, { id: "atm" }],
       installments: 12,
     },

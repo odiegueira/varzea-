@@ -99,8 +99,8 @@ function Apoio() {
           origin: window.location.origin,
         },
       });
-      if (!res.qr_code) throw new Error("PIX indisponível no momento.");
-      setPix({ paymentId: String(res.id), teamId: t.id, qr: res.qr_code, qr64: res.qr_code_base64, ticket: res.ticket_url, tier: plan.tier, amount: plan.amount });
+      if (!res.initPoint || !/^https?:\/\//.test(res.initPoint)) throw new Error("PIX indisponível no momento.");
+      window.location.href = res.initPoint;
     } catch (e: any) {
       toast.error(e?.message ?? "Não foi possível gerar o PIX.");
     } finally { setPendingPix(null); }
