@@ -8,7 +8,7 @@
     "directory": "dist/client"
   },
   "vars": {
-    "MP_ENV": "sandbox",
+    "MP_ENV": "live",
     "APP_ORIGIN": "https://varzea-mais.varzea-mais.workers.dev"
   }
 }
