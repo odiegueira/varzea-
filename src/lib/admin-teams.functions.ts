@@ -30,6 +30,10 @@ const teamSchema = z.object({
   ),
   colors: z.string().max(120).optional().nullable(),
   story: z.string().max(4000).optional().nullable(),
+  stadium_name: z.string().max(160).optional().nullable(),
+  stadium_latitude: z.number().min(-90).max(90).optional().nullable(),
+  stadium_longitude: z.number().min(-180).max(180).optional().nullable(),
+  checkin_radius_m: z.number().int().min(50).max(2000).optional(),
   is_active: z.boolean().optional(),
 });
 
@@ -39,7 +43,7 @@ export const adminListTeams = createServerFn({ method: "POST" })
     await assertAdmin(context.userId);
     const { data, error } = await getAdmin()
       .from("teams")
-      .select("id,name,nickname,neighborhood,city,founded,monthly_price,crest_url,colors,story,is_active")
+      .select("id,name,nickname,neighborhood,city,founded,monthly_price,crest_url,colors,story,is_active,stadium_name,stadium_latitude,stadium_longitude,checkin_radius_m")
       .order("name");
     if (error) throw new Error(error.message);
     return data ?? [];

@@ -188,7 +188,7 @@ function Carteirinha() {
                       </p>
                     )}
                     {isActiveSub ? (
-                      <Link to="/qrcode" className="mt-3 flex items-center justify-center gap-2 bg-gradient-pitch text-primary-foreground py-3 rounded-xl font-display text-base">
+                      <Link to="/qrcode" search={{ team: team.id }} className="mt-3 flex items-center justify-center gap-2 bg-gradient-pitch text-primary-foreground py-3 rounded-xl font-display text-base">
                         <QrCode className="h-4 w-4" /> CHECK-IN NO JOGO
                       </Link>
                     ) : (
@@ -301,7 +301,7 @@ function Carteirinha() {
             <PointRow icon={<Heart className="h-4 w-4" />} title="Apoiar 1 time (mensal)" pts="+320 pts/mês" />
             <PointRow icon={<Users className="h-4 w-4" />} title="Apoiar 2+ times no mesmo mês" pts="+150 pts extra por time adicional" highlight />
             <PointRow icon={<Calendar className="h-4 w-4" />} title="Manter apoio sem cancelar" pts="+50 pts a cada mês de fidelidade" />
-            <PointRow icon={<QrCode className="h-4 w-4" />} title="Check-in no jogo (QR Code no estádio)" pts="+100 pts por jogo" highlight />
+            <PointRow icon={<QrCode className="h-4 w-4" />} title="Check-in no jogo (localização no estádio)" pts="+100 pts por jogo" highlight />
             <PointRow icon={<Trophy className="h-4 w-4" />} title="Check-in em jogo decisivo (final, clássico)" pts="+250 pts" />
             <PointRow icon={<Zap className="h-4 w-4" />} title="Subir de tier (Bronze → Prata, etc.)" pts="+200 pts ao desbloquear" />
             <PointRow icon={<Megaphone className="h-4 w-4" />} title="Indicar amigo que vira apoiador" pts="+400 pts por indicação" highlight />

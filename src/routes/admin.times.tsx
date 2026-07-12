@@ -27,6 +27,7 @@ type TeamRow = {
   id: string; name: string; nickname: string | null; neighborhood: string | null; city: string | null;
   founded: number | null; monthly_price: number | null; crest_url: string | null;
   colors: string | null; story: string | null; is_active: boolean;
+  stadium_name: string | null; stadium_latitude: number | null; stadium_longitude: number | null; checkin_radius_m: number;
 };
 
 export const Route = createFileRoute("/admin/times")({
@@ -41,7 +42,7 @@ function Gate() {
 }
 
 function emptyTeam(): TeamRow {
-  return { id: "", name: "", nickname: "", neighborhood: "", city: "", founded: null, monthly_price: 10, crest_url: "", colors: "", story: "", is_active: true };
+  return { id: "", name: "", nickname: "", neighborhood: "", city: "", founded: null, monthly_price: 10, crest_url: "", colors: "", story: "", is_active: true, stadium_name: "", stadium_latitude: null, stadium_longitude: null, checkin_radius_m: 250 };
 }
 
 function Page() {
@@ -72,6 +73,10 @@ function Page() {
         crest_url: editing.crest_url || null,
         colors: editing.colors || null,
         story: editing.story || null,
+        stadium_name: editing.stadium_name || null,
+        stadium_latitude: editing.stadium_latitude === null ? null : Number(editing.stadium_latitude),
+        stadium_longitude: editing.stadium_longitude === null ? null : Number(editing.stadium_longitude),
+        checkin_radius_m: Number(editing.checkin_radius_m || 250),
         founded: editing.founded ? Number(editing.founded) : null,
         monthly_price: editing.monthly_price !== null && editing.monthly_price !== undefined ? Number(editing.monthly_price) : null,
       };
@@ -149,6 +154,15 @@ function Page() {
             <Field label="URL do escudo"><Input value={editing.crest_url ?? ""} onChange={(e) => setEditing({ ...editing, crest_url: e.target.value })} placeholder="https://..." /></Field>
             <Field label="Cores"><Input value={editing.colors ?? ""} onChange={(e) => setEditing({ ...editing, colors: e.target.value })} placeholder="Verde e branco" /></Field>
             <Field label="História"><Textarea rows={4} value={editing.story ?? ""} onChange={(e) => setEditing({ ...editing, story: e.target.value })} /></Field>
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 space-y-3">
+              <p className="text-xs font-bold uppercase tracking-wider text-primary">Localização para check-in</p>
+              <Field label="Nome do estádio/campo"><Input value={editing.stadium_name ?? ""} onChange={(e) => setEditing({ ...editing, stadium_name: e.target.value })} placeholder="Campo do Atlético" /></Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Latitude"><Input type="number" step="any" value={editing.stadium_latitude ?? ""} onChange={(e) => setEditing({ ...editing, stadium_latitude: e.target.value ? Number(e.target.value) : null })} placeholder="-23.5505" /></Field>
+                <Field label="Longitude"><Input type="number" step="any" value={editing.stadium_longitude ?? ""} onChange={(e) => setEditing({ ...editing, stadium_longitude: e.target.value ? Number(e.target.value) : null })} placeholder="-46.6333" /></Field>
+              </div>
+              <Field label="Raio permitido (metros)" hint="Recomendado: 150 a 300 metros."><Input type="number" min="50" max="2000" value={editing.checkin_radius_m} onChange={(e) => setEditing({ ...editing, checkin_radius_m: Number(e.target.value) })} /></Field>
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={editing.is_active} onChange={(e) => setEditing({ ...editing, is_active: e.target.checked })} />
               Ativo (visível no app)
