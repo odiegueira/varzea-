@@ -1,12 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchPreapproval, getAdmin, processMpPayment } from "@/lib/mercadopago.server";
+import {
+  fetchPreapproval,
+  getAdmin,
+  getMpEnvironment,
+  processMpPayment,
+  verifyMpWebhookSignature,
+} from "@/lib/mercadopago.server";
 
 async function handlePreapproval(preapprovalId: string, teamHint: string | null) {
   const pre: any = await fetchPreapproval(preapprovalId);
   const status = pre.status as string;
   const externalRef = (pre.external_reference ?? "") as string;
   const [refTeam, refUser, refTier] = externalRef.split(/[:|]/);
-  const finalTeamId = teamHint ?? refTeam ?? null;
+  if (teamHint && refTeam && teamHint !== refTeam) {
+    throw new Error("Time do webhook não corresponde à assinatura");
+  }
+  const finalTeamId = refTeam || teamHint || null;
   const userId = refUser || null;
   const mappedStatus =
     status === "authorized" ? "active"
@@ -25,7 +34,7 @@ async function handlePreapproval(preapprovalId: string, teamHint: string | null)
     unit_amount: amountCents,
     status: mappedStatus,
     current_period_end: pre.next_payment_date ?? null,
-    environment: "sandbox",
+    environment: getMpEnvironment(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "stripe_subscription_id" });
 }
@@ -42,6 +51,7 @@ export const Route = createFileRoute("/api/public/mp/webhook")({
         const dataId = (body?.data?.id ?? body?.id ?? url.searchParams.get("id") ?? null) as string | null;
         if (!dataId) return Response.json({ received: true, ignored: "no id" });
         try {
+          await verifyMpWebhookSignature(request, String(dataId));
           if (type === "payment" || type === "payment.updated" || type === "payment.created") {
             await processMpPayment(String(dataId), teamId);
           } else if (type === "subscription_preapproval" || type === "preapproval" || type === "subscription_authorized_payment") {

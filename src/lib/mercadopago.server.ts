@@ -5,9 +5,14 @@ const MP_API = "https://api.mercadopago.com";
 let _admin: SupabaseClient | null = null;
 export function getAdmin(): SupabaseClient {
   if (!_admin) {
+    const url = process.env.SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!url || !serviceRoleKey) {
+      throw new Error("SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurado");
+    }
     _admin = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      url,
+      serviceRoleKey,
     );
   }
   return _admin;
@@ -17,6 +22,58 @@ export function getPlatformAccessToken() {
   const v = process.env.MP_PLATFORM_ACCESS_TOKEN;
   if (!v) throw new Error("MP_PLATFORM_ACCESS_TOKEN não configurado");
   return v;
+}
+
+export type MpEnvironment = "sandbox" | "live";
+
+export function getMpEnvironment(): MpEnvironment {
+  const value = process.env.MP_ENV;
+  if (value !== "sandbox" && value !== "live") {
+    throw new Error("MP_ENV deve ser configurado como sandbox ou live");
+  }
+  return value;
+}
+
+export async function verifyMpWebhookSignature(request: Request, dataId: string) {
+  const secret = process.env.MP_WEBHOOK_SECRET;
+  if (!secret) throw new Error("MP_WEBHOOK_SECRET não configurado");
+
+  const signature = request.headers.get("x-signature");
+  const requestId = request.headers.get("x-request-id");
+  if (!signature || !requestId) throw new Error("Assinatura do webhook ausente");
+
+  const parts = Object.fromEntries(
+    signature.split(",").map((part) => {
+      const [key, ...rest] = part.trim().split("=");
+      return [key, rest.join("=")];
+    }),
+  );
+  const timestamp = parts.ts;
+  const received = parts.v1?.toLowerCase();
+  if (!timestamp || !received || !/^\d+$/.test(timestamp) || !/^[a-f0-9]{64}$/.test(received)) {
+    throw new Error("Formato de assinatura inválido");
+  }
+
+  const ageSeconds = Math.abs(Date.now() / 1000 - Number(timestamp));
+  if (!Number.isFinite(ageSeconds) || ageSeconds > 300) {
+    throw new Error("Assinatura do webhook expirada");
+  }
+
+  const manifest = `id:${dataId.toLowerCase()};request-id:${requestId};ts:${timestamp};`;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(manifest));
+  const expected = Array.from(new Uint8Array(signed), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  let difference = expected.length ^ received.length;
+  for (let index = 0; index < Math.min(expected.length, received.length); index += 1) {
+    difference |= expected.charCodeAt(index) ^ received.charCodeAt(index);
+  }
+  if (difference !== 0) throw new Error("Assinatura do webhook inválida");
 }
 
 const DEFAULT_FEE_PCT = 0.10;
@@ -37,7 +94,10 @@ export async function processMpPayment(paymentId: string, teamHint: string | nul
     : payment.payment_type_id ?? null;
   const externalRef = (payment.external_reference ?? "") as string;
   const [refTeam, refUser, refTier] = externalRef.split(/[:|]/);
-  const finalTeamId = teamHint ?? refTeam ?? null;
+  if (teamHint && refTeam && teamHint !== refTeam) {
+    throw new Error("Time do webhook não corresponde ao pagamento");
+  }
+  const finalTeamId = refTeam || teamHint || null;
   const userId = refUser || null;
   const preapprovalId = (payment.metadata?.preapproval_id ?? payment.preapproval_id ?? null) as string | null;
   const paidAt = (payment.date_approved ?? payment.date_created) as string | null;
@@ -60,7 +120,7 @@ export async function processMpPayment(paymentId: string, teamHint: string | nul
     payment_method: method,
     paid_at: paidAt,
     raw: payment,
-    environment: "sandbox",
+    environment: getMpEnvironment(),
   }, { onConflict: "mp_payment_id" });
 
   if (status === "approved" && preapprovalId && userId) {
@@ -75,7 +135,7 @@ export async function processMpPayment(paymentId: string, teamHint: string | nul
       status: "active",
       current_period_start: paidAt,
       current_period_end: new Date(Date.now() + PIX_VALIDITY_DAYS * 24 * 3600 * 1000).toISOString(),
-      environment: "sandbox",
+      environment: getMpEnvironment(),
       updated_at: new Date().toISOString(),
     }, { onConflict: "stripe_subscription_id" });
   }
@@ -95,7 +155,7 @@ export async function processMpPayment(paymentId: string, teamHint: string | nul
       status: "active",
       current_period_start: paidAt,
       current_period_end: new Date(startMs + PIX_VALIDITY_DAYS * 24 * 3600 * 1000).toISOString(),
-      environment: "sandbox",
+      environment: getMpEnvironment(),
       updated_at: new Date().toISOString(),
     }, { onConflict: "stripe_subscription_id" });
   }
@@ -103,25 +163,17 @@ export async function processMpPayment(paymentId: string, teamHint: string | nul
   return { status, approved: status === "approved" };
 }
 
-const STABLE_PREVIEW_ORIGIN = "https://id-preview--829372c0-5984-464f-974d-edb953d5e201.lovable.app";
-const STABLE_PRODUCTION_ORIGIN = "https://varzea-plus-uniaoplay.lovable.app";
-
 export function getStableAppOrigin(origin: string) {
-  try {
-    const url = new URL(origin);
-    if (url.hostname === "varzea-plus-uniaoplay.lovable.app") return STABLE_PRODUCTION_ORIGIN;
-    if (
-      url.hostname === "id-preview--829372c0-5984-464f-974d-edb953d5e201.lovable.app" ||
-      url.hostname.endsWith("lovableproject.com") ||
-      url.hostname === "localhost" ||
-      url.hostname === "127.0.0.1"
-    ) {
-      return STABLE_PREVIEW_ORIGIN;
-    }
-    return url.origin;
-  } catch {
-    return STABLE_PREVIEW_ORIGIN;
+  const configured = process.env.APP_ORIGIN?.trim();
+  const candidate = configured || origin;
+  const url = new URL(candidate);
+  if (!configured && (url.hostname === "localhost" || url.hostname === "127.0.0.1")) {
+    throw new Error("APP_ORIGIN público não configurado para receber webhooks");
   }
+  if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
+    throw new Error("APP_ORIGIN precisa usar HTTPS");
+  }
+  return url.origin;
 }
 
 export async function createPlatformPreapproval(opts: {

@@ -202,14 +202,19 @@ function Apoio() {
                     : "APOIAR AGORA"}
                 </button>
                 {!existing && (
-                  <button
-                    onClick={() => onPix(p)}
-                    disabled={subsLoading || !!pendingPix || !!pendingTier}
-                    className="mt-2 w-full py-2.5 rounded-xl font-display text-sm border border-primary/40 text-primary bg-primary/5 disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {pendingPix === p.tier ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                    PAGAR COM PIX
-                  </button>
+                  <div className="mt-2">
+                    <button
+                      onClick={() => onPix(p)}
+                      disabled={subsLoading || !!pendingPix || !!pendingTier}
+                      className="w-full py-2.5 rounded-xl font-display text-sm border border-primary/40 text-primary bg-primary/5 disabled:opacity-60 flex items-center justify-center gap-2"
+                    >
+                      {pendingPix === p.tier ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                      PIX AVULSO · 30 DIAS
+                    </button>
+                    <p className="mt-1 text-center text-[10px] text-muted-foreground">
+                      O PIX não é renovado automaticamente.
+                    </p>
+                  </div>
                 )}
               </div>
             );

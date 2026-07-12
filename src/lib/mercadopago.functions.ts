@@ -4,7 +4,6 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import {
   createPlatformPixPayment,
   createPlatformPreapproval,
-  createPlatformPreference,
   getAdmin,
   getStableAppOrigin,
   processMpPayment,
@@ -374,38 +373,23 @@ export const createMpSubscriptionCheckout = createServerFn({ method: "POST" })
       : data.returnUrl.replace(data.origin, stableOrigin);
 
     try {
-      // Usamos Checkout Preference (cartão/pix/etc) em vez de Preapproval.
-      // Preapproval do MP é muito restrito no sandbox e rejeita emails comuns.
-      // Preference funciona com qualquer email e aceita cartão sem fricção.
-      const pref = await createPlatformPreference({
+      // Apoio mensal precisa nascer como assinatura recorrente. Um Checkout
+      // Preference comum cobra apenas uma vez e não pode ativar recorrência.
+      const pre = await createPlatformPreapproval({
         payerEmail: email,
-        title: `Apoio ${data.teamName} ${data.tier}`,
+        reason: `Apoio mensal ${data.teamName} ${data.tier}`,
         amount: data.amount,
         externalReference: externalRef,
         backUrl,
         notificationUrl,
       });
-      return { initPoint: pref.init_point, preapprovalId: pref.id, error: null };
+      return { initPoint: pre.init_point, preapprovalId: pre.id, error: null };
     } catch (error) {
       console.error("Falha ao criar assinatura Mercado Pago:", error);
-      // Fallback final: tenta Preapproval (assinatura recorrente).
-      try {
-        const pre = await createPlatformPreapproval({
-          payerEmail: email,
-          reason: `Apoio mensal ${data.teamName} ${data.tier}`,
-          amount: data.amount,
-          externalReference: externalRef,
-          backUrl,
-          notificationUrl,
-        });
-        return { initPoint: pre.init_point, preapprovalId: pre.id, error: null };
-      } catch (e2) {
-        console.error("Fallback preapproval também falhou:", e2);
-      }
       return {
         initPoint: null,
         preapprovalId: null,
-        error: "Não foi possível abrir o Mercado Pago agora. Tente pagar com PIX ou tente novamente em alguns minutos.",
+        error: "Não foi possível criar a assinatura mensal. Confira a configuração do Mercado Pago ou tente o PIX avulso.",
       };
     }
   });
